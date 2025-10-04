@@ -5,6 +5,7 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, ThumbsDown, Share2 } from "lucide-react";
 import { VideoCard } from "@/components/VideoCard";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Watch() {
@@ -156,11 +157,11 @@ export default function Watch() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              <video
+              <VideoPlayer
                 src={video.video_url}
-                controls
-                className="w-full h-full"
-                autoPlay
+                onTimeUpdate={(time) => {
+                  // Update watch progress
+                }}
               />
             </div>
 
