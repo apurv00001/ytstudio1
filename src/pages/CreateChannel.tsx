@@ -7,6 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+
+const channelSchema = z.object({
+  name: z.string()
+    .trim()
+    .min(1, "Channel name is required")
+    .max(50, "Channel name must be less than 50 characters"),
+  handle: z.string()
+    .trim()
+    .min(3, "Handle must be at least 3 characters")
+    .max(30, "Handle must be less than 30 characters")
+    .regex(/^[a-zA-Z0-9_]+$/, "Handle can only contain letters, numbers, and underscores"),
+  description: z.string()
+    .max(1000, "Description must be less than 1000 characters")
+    .optional(),
+});
 
 export default function CreateChannel() {
   const navigate = useNavigate();
@@ -30,34 +46,47 @@ export default function CreateChannel() {
 
     setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const name = formData.get("name") as string;
-    const handle = formData.get("handle") as string;
-    const description = formData.get("description") as string;
+    try {
+      const formData = new FormData(e.currentTarget);
+      const rawData = {
+        name: formData.get("name") as string,
+        handle: formData.get("handle") as string,
+        description: formData.get("description") as string || undefined,
+      };
 
-    const { error } = await supabase
-      .from("channels")
-      .insert({
-        user_id: session.user.id,
-        name,
-        handle: `@${handle}`,
-        description,
-      });
+      // Validate input
+      const validation = channelSchema.safeParse(rawData);
+      if (!validation.success) {
+        throw new Error(validation.error.errors[0].message);
+      }
 
-    setLoading(false);
+      const { name, handle, description } = validation.data;
 
-    if (error) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
+      const { error } = await supabase
+        .from("channels")
+        .insert({
+          user_id: session.user.id,
+          name,
+          handle: `@${handle}`,
+          description,
+        });
+
+      setLoading(false);
+
+      if (error) throw error;
+
       toast({
         title: "Success",
         description: "Channel created successfully!",
       });
       navigate("/upload");
+    } catch (error: any) {
+      setLoading(false);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 

@@ -7,6 +7,7 @@ import { ThumbsUp, ThumbsDown, Share2 } from "lucide-react";
 import { VideoCard } from "@/components/VideoCard";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { useToast } from "@/hooks/use-toast";
+import { getVideoUrls, getSignedUrl } from "@/utils/storage";
 
 export default function Watch() {
   const [searchParams] = useSearchParams();
@@ -51,7 +52,13 @@ export default function Watch() {
       .single();
 
     if (!error && data) {
-      setVideo(data);
+      // Get signed URLs for video and thumbnail
+      const { videoUrl, thumbnailUrl } = await getVideoUrls(data.video_url, data.thumbnail_url);
+      setVideo({
+        ...data,
+        video_url: videoUrl,
+        thumbnail_url: thumbnailUrl,
+      });
     }
   };
 
@@ -70,7 +77,14 @@ export default function Watch() {
       .limit(10);
 
     if (data) {
-      setRelatedVideos(data);
+      // Get signed URLs for thumbnails
+      const videosWithUrls = await Promise.all(
+        data.map(async (v) => ({
+          ...v,
+          thumbnail_url: await getSignedUrl("thumbnails", v.thumbnail_url),
+        }))
+      );
+      setRelatedVideos(videosWithUrls);
     }
   };
 

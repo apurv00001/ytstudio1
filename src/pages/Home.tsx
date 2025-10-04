@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { VideoCard } from "@/components/VideoCard";
+import { getSignedUrl } from "@/utils/storage";
 
 export default function Home() {
   const [videos, setVideos] = useState<any[]>([]);
@@ -26,7 +27,14 @@ export default function Home() {
       .limit(24);
 
     if (!error && data) {
-      setVideos(data);
+      // Generate signed URLs for thumbnails
+      const videosWithUrls = await Promise.all(
+        data.map(async (video) => ({
+          ...video,
+          thumbnail_url: await getSignedUrl("thumbnails", video.thumbnail_url),
+        }))
+      );
+      setVideos(videosWithUrls);
     }
     setLoading(false);
   };

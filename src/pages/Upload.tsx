@@ -9,6 +9,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload as UploadIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+
+const uploadSchema = z.object({
+  title: z.string()
+    .trim()
+    .min(1, "Title is required")
+    .max(100, "Title must be less than 100 characters"),
+  description: z.string()
+    .max(5000, "Description must be less than 5000 characters")
+    .optional(),
+  tags: z.string()
+    .max(500, "Tags must be less than 500 characters")
+    .optional(),
+  privacy: z.enum(["public", "unlisted", "private"]),
+});
 
 export default function Upload() {
   const navigate = useNavigate();
@@ -48,10 +63,23 @@ export default function Upload() {
 
     try {
       const formData = new FormData(e.currentTarget);
-      const title = formData.get("title") as string;
-      const description = formData.get("description") as string;
-      const privacy = formData.get("privacy") as string;
-      const tags = (formData.get("tags") as string).split(",").map(t => t.trim());
+      const rawData = {
+        title: formData.get("title") as string,
+        description: formData.get("description") as string || undefined,
+        tags: formData.get("tags") as string || undefined,
+        privacy: formData.get("privacy") as string,
+      };
+
+      // Validate input
+      const validation = uploadSchema.safeParse(rawData);
+      if (!validation.success) {
+        throw new Error(validation.error.errors[0].message);
+      }
+
+      const { title, description, privacy, tags: tagsString } = validation.data;
+      const tags = tagsString 
+        ? tagsString.split(",").map(t => t.trim()).filter(t => t.length > 0)
+        : [];
 
       // Upload video
       const videoPath = `${session.user.id}/${Date.now()}_${videoFile.name}`;
@@ -61,12 +89,11 @@ export default function Upload() {
 
       if (videoError) throw videoError;
 
-      const { data: { publicUrl: videoUrl } } = supabase.storage
-        .from("videos")
-        .getPublicUrl(videoPath);
+      // Store path instead of public URL since buckets are now private
+      const videoStoragePath = videoPath;
 
       // Upload thumbnail if provided
-      let thumbnailUrl = null;
+      let thumbnailStoragePath = null;
       if (thumbnailFile) {
         const thumbnailPath = `${session.user.id}/${Date.now()}_${thumbnailFile.name}`;
         const { error: thumbnailError } = await supabase.storage
@@ -74,22 +101,19 @@ export default function Upload() {
           .upload(thumbnailPath, thumbnailFile);
 
         if (!thumbnailError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from("thumbnails")
-            .getPublicUrl(thumbnailPath);
-          thumbnailUrl = publicUrl;
+          thumbnailStoragePath = thumbnailPath;
         }
       }
 
-      // Create video record
+      // Create video record with storage paths (not URLs)
       const { data: videoData, error: dbError } = await supabase
         .from("videos")
         .insert({
           channel_id: channel.id,
           title,
           description,
-          video_url: videoUrl,
-          thumbnail_url: thumbnailUrl,
+          video_url: videoStoragePath,
+          thumbnail_url: thumbnailStoragePath,
           privacy: privacy as any,
           published_at: privacy === "public" ? new Date().toISOString() : null,
         })
