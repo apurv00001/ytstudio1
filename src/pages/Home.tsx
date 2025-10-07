@@ -13,28 +13,22 @@ export default function Home() {
   }, []);
 
   const fetchVideos = async () => {
-    const { data, error } = await supabase
-      .from("videos")
-      .select(`
-        *,
-        channels (
-          name,
-          avatar_url
-        )
-      `)
-      .eq("privacy", "public")
-      .order("created_at", { ascending: false })
-      .limit(24);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-youtube-videos', {
+        body: { query: 'trending' }
+      });
 
-    if (!error && data) {
-      // Generate signed URLs for thumbnails
-      const videosWithUrls = await Promise.all(
-        data.map(async (video) => ({
-          ...video,
-          thumbnail_url: await getSignedUrl("thumbnails", video.thumbnail_url),
-        }))
-      );
-      setVideos(videosWithUrls);
+      if (error) {
+        console.error('Error fetching YouTube videos:', error);
+        setLoading(false);
+        return;
+      }
+
+      if (data?.videos) {
+        setVideos(data.videos);
+      }
+    } catch (error) {
+      console.error('Error:', error);
     }
     setLoading(false);
   };
@@ -71,10 +65,11 @@ export default function Home() {
                 id={video.id}
                 title={video.title}
                 thumbnail={video.thumbnail_url}
-                channelName={video.channels?.name || "Unknown"}
+                channelName={video.channel_name || video.channels?.name || "Unknown"}
                 channelAvatar={video.channels?.avatar_url}
-                views={video.view_count}
+                views={video.view_count || 0}
                 createdAt={video.created_at}
+                isYouTubeVideo={video.isYouTubeVideo}
               />
             ))}
           </div>

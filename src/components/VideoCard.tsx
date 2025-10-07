@@ -9,6 +9,7 @@ interface VideoCardProps {
   channelAvatar?: string;
   views: number;
   createdAt: string;
+  isYouTubeVideo?: boolean;
 }
 
 export const VideoCard = ({
@@ -19,13 +20,22 @@ export const VideoCard = ({
   channelAvatar,
   views,
   createdAt,
+  isYouTubeVideo = false,
 }: VideoCardProps) => {
   const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (isYouTubeVideo) {
+      window.open(`https://www.youtube.com/watch?v=${id}`, '_blank');
+    } else {
+      navigate(`/watch?v=${id}`);
+    }
+  };
 
   return (
     <div
       className="group cursor-pointer"
-      onClick={() => navigate(`/watch?v=${id}`)}
+      onClick={handleClick}
     >
       <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
         <img
